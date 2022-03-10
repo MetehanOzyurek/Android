@@ -41,6 +41,7 @@ interface DownloadCallback {
     suspend fun onStart(downloadItem: DownloadItem)
     suspend fun onSuccess(downloadId: Long, contentLength: Long)
     suspend fun onSuccess(file: File, mimeType: String?)
+    suspend fun onCancel(downloadId: Long)
     suspend fun onFailure(downloadId: Long? = null, url: String? = null, reason: DownloadFailReason)
     fun commands(): Flow<FileDownloadCallback.DownloadCommand>
 }
@@ -114,6 +115,14 @@ class FileDownloadCallback @Inject constructor(
                 mimeType = mimeType
             )
         )
+    }
+
+    override suspend fun onCancel(downloadId: Long) {
+        Timber.d("Download cancelled from the notification for file with downloadId $downloadId")
+        // This will be marked as successful as the download started and it was deliberately cancelled by the user.
+        // The DownloadManager also handles this as a SUCCESS, however it removes the record from its internal DB.
+        pixel.fire(AppPixelName.DOWNLOAD_REQUEST_SUCCEEDED)
+        downloadsRepository.delete(listOf(downloadId))
     }
 
     override suspend fun onFailure(downloadId: Long?, url: String?, reason: DownloadFailReason) {
